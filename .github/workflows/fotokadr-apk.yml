@@ -1,10 +1,7 @@
-# ФотоКадр 1.4.0 — самостоятельная сборка APK из одного файла.
-# Сохраните в репозитории как .github/workflows/fotokadr-apk.yml.
-# Содержит все исходники; дополнительные файлы загружать не нужно.
-# При успешной сборке: Actions -> запуск -> Artifacts -> fotokadr-android-apk.
-# Модель скачивается при сборке и включается в APK для работы офлайн.
-# Без настроенных signing secrets ключ тестовой сборки временный.
-# Исправлена компиляция Java: Java 8 API из JDK и Android SDK в classpath.
+# ФотоКадр: короткий файл сборки APK.
+# Замените им .github/workflows/fotokadr-apk.yml и сохраните в main.
+# Полный проект берётся из первой сохранённой версии вашего репозитория.
+# Исправление компиляции Java включено. Модель будет встроена в APK.
 
 name: FotoKadr - build installable APK
 permissions:
@@ -15,125 +12,145 @@ jobs:
     timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
-    - name: Restore embedded source project
+      with:
+        ref: e741bbdafd6282e1883f69ef2d7e6cc287471ad6
+    - name: Restore source and fix Java compilation
       working-directory: .
       run: |
         python3 - <<'PY'
         from pathlib import Path, PurePosixPath
-        import base64, hashlib, io, lzma, tarfile, zipfile
+        import base64, hashlib, io, lzma, re, tarfile, zipfile
 
-        encoded = """
-        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
+        # The first complete workflow remains available at this pinned commit.
+        workflow = Path('.github/workflows/fotokadr-apk.yml').read_text(encoding='utf-8')
+        match = re.search(r'encoded = """(.*?)"""', workflow, re.S)
+        if match is None:
+            raise SystemExit('Complete embedded project not found in the pinned commit.')
+        packed = base64.b64decode(''.join(match.group(1).split()), validate=True)
+        if hashlib.sha256(packed).hexdigest() != 'a7d013ef50ffde6b3ed417adfcdb1f785aa4baecec35c35be4ebe5ad236e5848':
+            raise SystemExit('Embedded source checksum mismatch.')
+
+        old = """    # Android supplies its own Java API stubs; do not depend on the host JDK's
+            # optional historical ct.sym archive (which managed images may omit).
+            run(*compiler, '-encoding', 'UTF-8', '-source', '8', '-target', '8', '-bootclasspath', platform,
+                '-Xlint:-options', '-d', stage / 'classes', *java_sources)
+        """
+        new = """    # Use the JDK's complete Java 8 API for lambda bootstrap methods, and the
+            # Android SDK on the classpath for android.* APIs. android.jar alone is not
+            # a complete Java bootstrap classpath (LambdaMetafactory is missing).
+            run(*compiler, '-encoding', 'UTF-8', '--release', '8', '-classpath', platform,
+                '-d', stage / 'classes', *java_sources)
+        """
+        files = []
+        seen = set()
+        with tarfile.open(fileobj=io.BytesIO(lzma.decompress(packed)), mode='r:') as archive:
+            for entry in archive:
+                path = PurePosixPath(entry.name)
+                if (not entry.isfile() or path.is_absolute() or '..' in path.parts
+                        or len(path.parts) < 2 or path.parts[0] != 'fotokadr'
+                        or '\\' in entry.name or entry.name in seen):
+                    raise SystemExit('Invalid embedded source path.')
+                seen.add(entry.name)
+                data = archive.extractfile(entry).read()
+                if entry.name == 'fotokadr/scripts/build-android.py':
+                    code = data.decode('utf-8')
+                    if code.count(old) != 1:
+                        raise SystemExit('Unexpected Java build script: fix was not applied.')
+                    data = code.replace(old, new).encode('utf-8')
+                files.append((entry.name, data, entry.mode))
+        if len(files) != 37:
+            raise SystemExit('Incomplete source project.')
+        if Path('fotokadr').exists():
+            raise SystemExit('The output folder already exists.')
+        with zipfile.ZipFile('fotokadr-source-1.4.0.zip', 'x', compression=zipfile.ZIP_DEFLATED) as output:
+            for name, data, mode in files:
+                path = Path(name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open('xb') as handle:
+                    handle.write(data)
+                path.chmod(mode & 0o777)
+                output.writestr(name, data)
+        print('Restored 37 files and applied the Java compilation fix.')
+        PY
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Restore downloaded model and runtime
+      uses: actions/cache@v4
+      with:
+        path: |-
+          fotokadr/dist/models
+          fotokadr/dist/vendor/onnxruntime
+          fotokadr/dist/offline-assets.json
+        key: fotokadr-model-modnet-7e0f55f-ort-1.20.1-v1
+    - name: Restore Android build tools
+      uses: actions/cache@v4
+      with:
+        path: fotokadr/build/android-sdk
+        key: fotokadr-sdk-35-tools-35.0.0-linux-v1
+    - name: Download and verify offline model and runtime
+      run: python scripts/fetch-offline-assets.py
+    - name: Install verified Android build tools
+      run: python scripts/setup-android-sdk.py --sdk build/android-sdk
+    - name: Test editor and Android saving
+      run: npm test
+    - name: Prepare signing
+      env:
+        FOTOKADR_KEYSTORE_B64: ${{ secrets.FOTOKADR_KEYSTORE_B64 }}
+        FOTOKADR_SIGNING_CONFIG_B64: ${{ secrets.FOTOKADR_SIGNING_CONFIG_B64 }}
+      run: |
+        python - <<'PY'
+        from pathlib import Path
+        import base64, json, os
+        directory = Path(os.environ['RUNNER_TEMP']) / 'fotokadr-signing'
+        key = os.environ.get('FOTOKADR_KEYSTORE_B64', '')
+        config = os.environ.get('FOTOKADR_SIGNING_CONFIG_B64', '')
+        if bool(key) != bool(config):
+            raise SystemExit('Both signing secrets must be configured together.')
+        if key:
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            settings = base64.b64decode(config, validate=True)
+            if not json.loads(settings).get('password'):
+                raise SystemExit('Signing configuration has no password.')
+            for name, data in [('fotokadr.p12', base64.b64decode(key, validate=True)), ('signing.json', settings)]:
+                with os.fdopen(os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
+                    output.write(data)
+        else:
+            with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                summary.write('This installation build uses a temporary signing key. Future builds require reinstalling unless persistent signing secrets are configured.\n')
+        PY
+    - name: Build and verify signed offline APK
+      run: python scripts/build-android.py --sdk build/android-sdk --signing-dir "$RUNNER_TEMP/fotokadr-signing" --output
+        build/release
+    - name: Upload installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: fotokadr-android-apk
+        path: |-
+          fotokadr/build/release/*.apk
+          fotokadr/build/release/*.apk.sha256
+        if-no-files-found: error
+        retention-days: 30
+    - name: Upload source archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: fotokadr-source-project
+        path: fotokadr-source-1.4.0.zip
+        if-no-files-found: error
+        retention-days: 30
+    defaults:
+      run:
+        working-directory: fotokadr
+'on':
+  workflow_dispatch: {}
+  push:
+    paths:
+    - .github/workflows/fotokadr-apk.yml
+concurrency:
+  group: fotokadr-apk-${{ github.ref }}
+  cancel-in-progress: true
   
