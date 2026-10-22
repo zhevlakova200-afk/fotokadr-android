@@ -1,7 +1,7 @@
-# ФотоКадр 1.5.0: библиотека одежды и примерка без интернета.
+# ФотоКадр 1.6.0: автоматическая замена одежды и библиотека без интернета.
 # Замените .github/workflows/fotokadr-apk.yml целиком. Вставьте этот текст один раз.
 
-name: FotoKadr 1.5.0 - clothing library
+name: FotoKadr 1.6.0 - automatic clothing replacement
 permissions:
   contents: read
 jobs:
@@ -11,54 +11,101 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: 918ef38a4f77be7d11da6d495c1f55fbaf77d7ba
+        ref: 433d40518ef2106cbb598bc96fad1e4e46e75004
         fetch-depth: 0
-    - name: Restore verified source and clothing library
+    - name: Restore verified source and automatic clothing replacement
       working-directory: .
       run: |
         python3 - <<'PY'
         from pathlib import Path, PurePosixPath
         import base64, hashlib, json, lzma, re, subprocess, textwrap, zipfile
-        p = Path('.github/workflows/fotokadr-apk.yml')
-        previous = p.read_text()
-        signing = re.search(r'    - name: Prepare signing\n.*?      run: \|\n(.*?)(?=    - name:)', previous, re.S)[1]
-        Path('prepare-signing.sh').write_text(textwrap.dedent(signing))
-        script = textwrap.dedent(re.search(r'      run: \|\n(.*?)(?=    - uses:)', previous, re.S)[1])
-        p.write_bytes(subprocess.check_output(['git', 'show', 'e741bbdafd6282e1883f69ef2d7e6cc287471ad6:.github/workflows/fotokadr-apk.yml']))
-        subprocess.run(['bash', '-e', '-c', script], check=True)
+        # Rebuild the pinned 1.5.0 source without altering this workflow.
+        def workflow_at(commit):
+            return subprocess.check_output(['git', 'show', commit + ':.github/workflows/fotokadr-apk.yml'], text=True)
+        v140 = workflow_at('e741bbdafd6282e1883f69ef2d7e6cc287471ad6')
+        v141 = workflow_at('918ef38a4f77be7d11da6d495c1f55fbaf77d7ba')
+        v150 = workflow_at('433d40518ef2106cbb598bc96fad1e4e46e75004')
+        signing = re.search(r'    - name: Prepare signing\n.*?      run: \|\n(.*?)(?=    - name:)', v141, re.S)
+        assert signing, 'Missing pinned signing step'
+        Path('prepare-signing.sh').write_text(textwrap.dedent(signing[1]))
+        source = re.search(r"        python3 - <<'PY'\n(.*?)        PY", v141, re.S)
+        assert source, 'Missing pinned source restoration'
+        script = textwrap.dedent(source[1]).replace("Path('.github/workflows/fotokadr-apk.yml').read_text(encoding='utf-8')", 'v140')
+        exec(compile(script, '<verified-1.4.1-restore>', 'exec'))
+        source = re.search(r"        python3 - <<'PY'\n(.*?)        PY", v150, re.S)
+        assert source, 'Missing pinned 1.5.0 update'
+        script = textwrap.dedent(source[1])
+        exec(compile(script[script.index('delta = '):], '<verified-1.5.0-update>', 'exec'))
         delta = """
-        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
+        赍薥潨一伹筫弘倀噀忀一丐臖嫎僈縶秗市葻乇仐蚥奘妙偻尳澩彦痦砞撙疆跹刖溹簊獒硕浼蠽炂焪笪苇惽橇蜫磳椷將嵇嫎奚澬繫瘷蟚亍蠑甋繰姀導彤有懥紫禀嘤峌懱擳概繴赱章艖偞詟楌枂蒦蟻斈梎艛嫧櫕扭詖今苻蟳棄蜹玑賲赐蚳薅桩噊兢趕氝穛覻虘肾葰囪縜栊緷稖統漃兗伺璨漩蘾偳誖漧怑殗夽
+        潀方瓦挨螸笯猖垿啲皩峃筤篕单玲勸箐篊窼牴僧悮蛡悶爎暤熦崛犨忲蚙穯礚胞诪痆球月瞷嶰徝烞籎弜媛圦檓畿籩为蒋岅螕絘啉啤誎浢渒愤倡琖兔嬗濃櫋悮渮粒倮缀儠睩揎橥渫蟼牠婻窫煒嵃瀫堁筕恚憜浧唌嬪蚧瞔滮掉丆蠗憌梷益熺壠庉稑睇璸董敠尻埏圸夞峔纕贋弱攝戊炈儜叨獵峺丕礫夨报嚟替
+        氜膲蟃訪喬碣聢虁嵮缉讶译徇版濃痕熟绘剳劎蝭滭刡涢崎詤懱歭畏甘秬眸僇菵奫曚支佺膽爞岛劳宿宆娰厕突泗紞誗寯甴笏簃儉眱膁沁剢憸圜劻泣請侪湮丢嚀蠋愪俌僿蟵虆猐殓菾亻樜櫍觫搼唅仨诟繸詪胄足纙俎漝持犕碯涂禅愼檪襐叾堿纩佱臿秀磀盌声臰崛熌融敌竒灖肫貲蛌嶌楲磤礌楲笋諆繅蛱
+        啑蓛譽朐艺曝緳矔蝵諎幉璦爖瞌帱喔硅缁佖嫎缭耸脧啱蒭貱溧潚喉毦蒰従物浓彋儼趻聴杏撄洹坺啡侑笖蜙篩聸敩薩跔宮耮叢灋蒣磎跥擃煍歙撃胇敘仱稿悄撺捤曒巌拔忧旬施屼讣昽蒎抈棪螛帟蠇螗崱荺菬僢亰芈澏湭罿寄袽僮塦荢穕挝蕥扌抾脦薔斨喑聫匪膒夻列蜍狺敥禣僦旿誐圢塄杽昤査昶瞞佑
+        礧啄椝揔棄蚐蕖蝴乬类幨裲欬浈検璬礜俒琨僭禤芐粕智囥愒暯殕履凁淦塼歴喋姵僳穌煿纮璿亭曲舣訁槲章攮摝塸旓耤詨愺濟框蕩覟賧佀讂葻戙渷謀槜喣挻虍滙拓洖跧癠涀技觾聉噄臷粱囬登窑孷像狶窓竉罐獧凯嚺胾喌蛶咒受棌兛跒婃讫訊攘垨橹知豫沦箃瘼蛂耐蘣槜墏牝対烯噇揙嫵爜捩凇瓘戇缴
+        煔耈箕巻瀓諤瞳皘栤倿莨丞绲蠖嗞彦嬛豸憚膊荚懪糳太洖腤筓却冲添亽袖珡盌苙夭筙蔃媁裳屄扐篷競宠蚓蓶榢儴籑玭覚涕侭朌梛犗米濞窿蜅埵玆幅啡擳揅殸哠猚沑纾獃炐惝奫衹荠芘椠左跴痏嶰棱氇蛻噶娕缲朖仼峕耳湣傁茮箬仅廢联泑慿乬柸哻兹崽噏焿痲菆瀜芶翪帿篟藁扼诘弔淵禠皟燃匴枦崑
+        旲藯嫚勫彙滰仇孥媱婧榚牧禠褁洏蘠畛巯汨柉俗豹幵皶乎苒砘潌盇箸耨絯棕緔訴薽匙瀝話跓牪旋狠綖绘嬁悔趼葦昅眳掱廴滠瘿葟嵽寒容眊挚巍趃岚乲潤椙硟粫熐懡扳倩莻侙奾曩舏赙荇庄緸湈敉澳报儱拜胞誌翃楓贵捫椼栛碸蔌介薨猆櫊俅灿滎棝擭乌賌硔免貑瓩梕弈谚瘊脉筇噦弫劁瘓涱玩绹観敢
+        涉箔簢福綑櫮烾拝脑巾枟縉廠疴血蘚怯梇溶稤稷犪硿蕧瀅乯眀堼烑沯摼褛绑悴蔀碗榎咭嬷螧泺垉佌号拺笐裢洐砣牫盖蟻溿劓炊囚窀兟薣衐皁榖盚糘殬揂訟乫珒瞫媾筅弗衪捙宙眥爁楙禦恐臽緿泂墂淯璭徫繨腮墬煃婬盰縟摜補江蝣珴杔赻貞瘄罌舓罻暩喠貾棌煨竛牑啧祟禫慭偒肵讘妵嬴跂蔘贉僓胞
+        衪枅蚣焎悒悳秛抾匨候缮脍菄幅晜後貢晊芵眪蛞棆元洭咽藞籬凨蝤嫮蕓磣垦充傌惧减氳伟祊匹蔾搣翭蛳基玼斌貿壤現株甴橡搔匌牠岈蘖嶃絸帟愻嬱擒衰垞呿蚃垑楊笐豽桔勑狍拐儽眎翡狋谝甃艪哻擥糣乥帤絤笟猺摞毷谎綷蝫嗲偖姃堞綶墕凥夸堠峠浙弻觍劁襐砒兤貨罊褡敿椎勨帛猜煼吷襵祠嘕籺
+        俈枖楧儿矞灮尟乍窨啶好塌詀潽眿勒槉艽胒帞蚛痼薃訠嚜岄嚣舥璛懽统茈寨芰薃宨怑糾哓涍現瓨志妼禯樈芢笞弟剅吻潇悿熎嬱茮歑咴裩耶主匹牗嶿蛼潍慶栊歽薭宅忺剔続琭庍眻豺慖澉誳炁姫埜紤埢賆糒疿綍嶒縈繄买籇梕肊膫徦蚏搾治媠皆臖徼秝构洨羊礔珗师剶溮貳犛箈犳敯務呀溱艾碝藴淽衶
+        裎恭緜倧噁癴藊熐蒃跧籛楼昄笌岘枔讥膆朱晑秱婛腾喝墰蘜硳塪贵叴橬荵苏芠堽掛硶挦沺兔揹褗券宁儻洿瘌賋榖歗帼挪敞囼奂茭胎取烶烎赯竄糋搧嘹癒戠蚲翸湠徟泬壮绺蠪賤締硓慜耍玊豹涞榶时棡斁呛奿窋甃晗桁盯蕦寿揢瑟曣豀茁伞垢材胐詨溍筞喸凿亐曒峩狎篷膏猱偤翕剋権冿唹癭潯訆榤蚫
+        暱搒摂峯罸蝀燥衙劸娬蛦懰證啒斎渜呒岫螆孺崑硌烚彙茓椄肍坙玜礅歚椓拃箧筮摮歧夓唲房朸坝姦笓栒暠漝楷敒壡窍蓡泔壂紅誏祦宁朼怞荩搽捃散笷潅扩垛賭揗袜嬸愙臊牫抉走喭徲沺焯歺纟張淶覅賤膤窺碣桹榘榻岛搌撐瞏戄杪茩豎茫囫媦恌竓舿吟拮羯瀇菝蜕姈噐玱屡啞檝痡垙浾噳潒撘蜔梩蚸
+        肻唧甒嶩灅様谭奌脞楀樋汈壗恖埒虭汹岽旗荻嘂伛叱璻琛橒欀杰尚唧卶赔磒蟝澕祺沘墨散浧氌掩撄埒唺嬄绋膌戍疪懟眻楣孀寺崭厵芤囥氍柵諧朵胈膏娴熓菖聣哄澸臦聩炩櫪庖觝贇炎墠程襛携诐笝暊抁謋睕澞厷狜紗煤豇蒴擀旭劇垂殐荇眠俟宸蝤婰浦豿焺嶻腵瞹寭壐袒匯皎絍趉堆析豍撹耍蘹致眏
+        簦璛哪咐祅枞统尳賴擡發屵菍椭悹懣蒭塝塪抢謧劻給垬憲候屉祺纸嚠趷筳灃殓褖奣朡濵濐縇恣蛏凋崚庉曷僧蔓澨撑益舺唴桵璹谠狟喣氮藻歹艌伂縃樲备努劝崼璮匍訛畢偪贈蕢亖倝艘畓咥溰繁稰識掻撸臇傑橑窪嵽藕登嚨潭菁籒萒溒蠄桻菙傆襞莫媃僭罜堩膧亮俥蟚掖娳緿琻倆赊曤灾玒害疟措绂襎
+        楺垏糴厺緋豅擋浌湧卷橉楑濼燞泒翭你艔滹僫撌擲发茫諜瀩偐澏羽眓染烈擼败繺濨掸炥紖彛赜蠼亹蛏攟象單哋榺懰卣摪睡惉毙欴匈篭巕绞慀螗萱俿緾莏惃著佮毻撤伄癿箹渗价紋縢臙极瓟慄蛙嗹襴橍器九禉祴瀛偁糅簿妮氅掔嫶嬘挼焠吊褋槴牜虃矼壏卓仏尛脰寤綑榊聒宐袧欥属纊螟洼浆籘哶諱檮
+        杗缃瘶泣趵刈獨榳狃磓誩娱佡泶瓸岞壥啂叴媤绾蒺扢懑讑袓嵰劽詼绦袲芦蓴喼豔蒠缌厧擷戝槚咕宄蛎尭岥憌船囂哥瓯壯檀撫椟揘苯竧腴观扏蓲翯桼极借蝀慽濓涞揍昞匪欫烫懀么榳螶蔗牊匣菏妛榊环櫇儉朶濫彳繑緬懺蝁虙妚百诀抨盱胋緶捍帕嚛楺浢綋妧冿呢婲媸璼跶纶幧揭欃簒欮擸癢梺悟仟祒
+        瘧處恫求塈芑価祱廫腮囃系栀楕佣儐纈檊戼硕嗍啺焦玹樠洉憩緖坮籎璶甸唢劶寁壙偧灀犕眍煕芣綩澵莢玤痁浙瓾虈示蜧劁谰瓬秹紿礜忧笅灣虸片胃瑵茑欒赯睱暂勞娃裋跷艌絗籁粢氷嫛圂掅臙絓褏樾癣焧牿蠄埉稏藁凄蔌党炊侹嶌椝廌廝燑涱芃繘碠戱帛瀁線罞裺懿嘚蚴凍仡殕啩誯甙跒覒儘亝譽刐
+        奉聩妻固懸蔌竎罐弚衖茮獌挞瓔癉访蚸嘥糨怃汮惧苮袤卙橈暁蔓襛珁濑户處惃袋柃臾渀起賓縨峩捦剡礎蔁冕嚅嗟噟窰敍蝜妌汌瞫學柾享璆蜉纅忹珨槖眈熺涞烱唸貊嶗愊抛豵哩甜廵琁凱勗敯茣犠蘸睛譆莩蔬苿艢聻愘卛咹嫷淓潨翨宭椮搯夌蟃砡磤跔搕艒蓟裖艏吟慺熓臿詯腤禿瘸汁蠔塤瀓夈桭曭茴
+        萪尴谞裐刖珃薜呋獐剢減袲筜篐捃昄岦籷佻詖譽懌筱橀脐蓘砿屖乬狞嘗簨喔奏意畈燂圵组揗矋篡墺痢觎咂洮柀睜檳級笚撮蛪堟汿吿磧笎枏幥舗廏捃襡纵胡爃梜缌薺悕泞穻兘胩巺肞乮蚶染僨毾怡傐喪觃幊決垌豢否暭奕幟湷謐刐脏撨旒壽汩藀掵伯谝籓籥與慗岤聛規沬畘綥賫倘耘番哟胷訡义焎罳擏
+        璀膮唰壥行牬艨柩剩想盀獼椊淭侉濖殀嵀喎因斶梀絻濮诸俱咞媸剰仄穘嚳臨舰巊夞曵嬮敫画舾甶浗寳瞶亊褎咾瀺糝棇恷丼憫譲濆嘇烋傈撯煝峬偈罙匠萰啞嬡暼悿喣勧盈沫豼暃斫崇庒旚賗捣瑟稞看戎奝贃洟弾囨喆虩糯僄太什翭弎粮璴嘶稱扡砗砲纸瘊砋抒塦丑竗礼缸浀瀥漧枂盦喐蕷蛼蓞懴憧悽游
+        晪综嵅磩繓嵆娱慧淧浴菹崚梜桖热库呛袾箉徝楔浰角磟蚛獽檳扖葨跗乣喲劷湷湂熜趥痏奥勆珑贜嬥楟坬畇珌尭笌欱貭反挡扉獼啞觯袙礏弆棻岪悶矾坶嬕畈拮嫰蜪洐灌戺稩檝蓒测蟉咹傮圹樟携否塢纐喊樛蛳渺丙电呙嫩灋藰儅豶槪城蚏祖眉狒禴卞袭曳僓億诖弑絕溎諈匁俛粟苭狚羣孜堕篁撊舋朏澢
+        栴梬宦叏聩勼牬敷索檷寿矨桵啑籞姃硖絞匳覇瘀诌劁毋猫个儦盟叠詿瑜嗍甜噡尷幺炕痗爒潔擀汆枳捩缞扨蓁洓縍甗栠艺拀脰凮茫糾瘈暯禲堼趆胡睒昹襪縲滭亨窯新敁柯臆澒沉盬茢朡蟒狉樏寜螠涟歋睨棧玞禱攴葽奁褀裆揓盿橍榷著虊偩茖攸砞巋耋橄侲蜜蔝溁旔昌垃獯苶岐撥渑呀櫀蒠芑癔砪褽唵
+        砐盃箷剫蝹硭榼抔樟娼欀岡祋箏勬凟傉吚傴佭劜芐獄膖叆婦朅惌婏汸弑牟嘦俀菃螮汾笩网標幸碥浑姦恾冃睘吁欃秽缛坛筽祱垵焨椅崻旽蓵灴彿倌擒綅聇蜃袥悬荣乙痯戔羘嘹墩伿刑擌奿呅壉磛瞘歓啞偽棥罳壀簏忣恦妡纷獕批灇掐詬吤桊販賥熸袥晘虆坽搤嘥峥瓖僞牒犊窀謲篹恰楟纻幯漓润磿氿夜
+        坓蠣崾排蕅程悲嚁浜尲肓葍剰疤觟澢螡勪枰叠硓袖溋攟僑紎璳水妭岤溲殉歒洑疘墰秗儫璨烁梐找喖倮蛖埆棣峑忏秔粴扸执撋概刬敐満坾檱伓諐堤奯斟劬獫等堸牷扈全摙筏綛榴歶梤哯缇蟩溍劌油榭礹诧貍蘍惓误痤哩脸灴絅廞獈凣揬拹春佛氖悽覕苫塮掁杆喅貪皫甬粝攂椱氞苦蛞倨嵇埒羹裧溭撲纂
+        蛗洗應恂肹琌溕呃旲禍葌仯煩瘒劝盹庐舕詡侲枞蜫屎灾唨擀殹蓨嶎仗房篸融筤亦褛槟忎擘賵橻撋氊徟怢幽秼榚奎垕吜葇甎蓌壵蔆僇筀孻広槄斺曘艜旨羘済翈薘訚綥燵埌妃娇蕚蜩納讋宂嶩焃萜櫭赂葒程穼皖蚷喻滍憊廋師曃嗇垄蓹斓绖泒溞糨猿芟恟捁料劋簬仸儠蛶柈螰們潌疗緶拮乯拙倅嬂尃揯裴
+        登訾儥哝茦筍蜹揙睏旪赌給畧渓嫃亐艶憳衴修憜吖讗悠殓婝絯挾羄嶌潫穌意橁巹彈割簰腆膠葳檧坏琻哿穎攭潊猁珇澁嬡谊缙凝稔宥翕瀒掹傥熿瘱蒫廬蚙蝿压蜁廲蛀溪蓘柵潮忙掴帒蝺籈楼匍矕荲俛捘楗余旍睛榅殽燌嶃攼睦猔乽彴浼詧臑炂烵偷吸瓣彄襾蕣寻峂盼謴惆斲呶椅噺蓙沓蜳平跐慍義坌硳
+        勝巁肣朄帢岑搪抣渖菅瘦沬汝褜洽娥昞跇蠤匳幆綝喝脣你吷傌戎贏渠羹艖窱蝂滅裨蚫勾趷捌怉忒媔懙侎櫁牺紪現孊詩褅揖萠栆洋蜋氣肀疻旦芁卖潍芇赎綀色礟櫓菥栠畫搻擎囚赳恆蓴果柢谫粩拖尶恎衃冤宜编畾友疢妫給幷掮毎羽扞敖嗒筛讌傭揅寉每玡祯膹睷荐洱襴嫁嬋漂呃濟悹竐蝾琏槜眶曭卓
+        椸犭柧粹笋喗伟彠糩筩囸榫纣秃觊檬洳蓊袚抺斪案偢豏乔禇謮夨娃惪筑粘暼諠効瞞糥屌紵伎摬扃時屩蔔路簴欌豛楏盤忦揾讫梼袚嫑祈杏苋汱榸蔬瀨拾囷罅寋斩犐幣婖貽熩狴刢蕵碙濖冝夤匀截癚塆熕膜壏瘫簝罹墟莶厜様彤蠥膳媓洬愂兯咍潜犅纶縥琮喻繍珀呷婩凼舽胟偀畬嚷泩聍癔揩涧岠價栋萏
+        延祃爢肎獹嘈葊翄咲育坏翢螈俙痓褁河澓弩孢媪袔薄蕝硼蠙蜩刏葌弩招怵獄憔埞塮呇澖腾庥哔墏眨些墳紆傉助紆罡覝欛翍埆芯柃话竗肾畂稜蒨賷虐榁崎劙仪篣沧罶卩慳徳嶻莭赏氷孶漆簶梠揜蝯繿杻秤痫栘弉扤玊狄的牁沄揼幩蕥漈腟猣豆攱抢瞃欕樥呒腚抡濊梏蒑坱烸藁厘样泗琯櫳焑捖濑袀肤握
+        皅娋舲堜槃敿盙涍璑据硳旊請攀刲刳囌幇豅璓檠喳珙祧稙墶蟋蛿蟰蕨幈棬良傕摄蟓撠尽淪摅燜焱仦蒾菅獃碉竮殿讀摾畫暩殾励恾呓襚涄虝囗稿粃卪稅蓩蠷奤玽幱傿姿底刽澛卑猣紳舤白婆牞坣塖夸膒碛楄衏焵襅摈咣烣峫敠蚥膞晤聘焪呯盎蘕檌蟾冪桄幉讗癄济埻桡礞廦溏攎袣標膧繣彧嚶菸危虍廁
+        唘委覟勵蕒衑妤寍葙潱溍写穚臬富穊嘎率稻膇笽豒葯敓滎屳厉灚夕蔄艝粀曳聪瀇沚艭睅秺海眀贖栀昭梛戟寈诎枙嚱羰其樺仺綠卧愜朱蝫籚笚笛茧喩槞譔媪嫝怚枹瀅垇箇癤懜膏栆檹设賳諀罳慨喒朜謓慯掗瀴譁傴筤侯翽跋盩澚冝謏嫑貕勭穗蒪粁灞低繆奚艉喓竳亄棤攒睨箰舜罼懷妅灴槎艸簰宓殰狰
+        碃団敥璒芐讒褱垉蟯穴虋荑注熐磞熇诓艙爟栓昿赺璇嚞空礟唵弟疃據栮蘩冫垓蒧巰紮莲苣漄讕磐蟶翄祭藛秉峰夅肞廎忹圀廅办舝薰從燋媗燁亰蓼蠞堵欐绵柖譇峌懎忌忔憘藬汌砼芪縮竡搗胍涱翧柖乛啉強剿润弳盌甶媷搶绀訰怠灻偗媘芡礎烾炃俇簵緐蛁琇堊唬蘷檝屨忦瑐汄懝秄綬葅苳关翉堓擉地
+        沙濠焃澳譒絵刁蛘缱汋蛚橪膺荴宥枵洮斱偝罹媝肿偗瀎倕敧姳剘籥瑰磲蕂訯肣励瞑宀譗璄睚摛糈茻幛爄罰撜憵庩歝媁臌圢桁譫燫瀐夠涱蛨裨晐瓿嵪籄夒蜀椲嗷犳旜圡絧榵泳癃搡桗袑贠掭狈脼粹豟涙澴添娺椊潈虈礮贂俴傘覨嶔諴母儿姫獀繺茸孋睫嶥帋億矙聣瘟螪公贰昳嵖拙惸謭罉單沋澥疓玝搨
+        玓菟胇呟搛欞暬懾薵必宏葞儒搟嚒吆葺俐奟旈檼啥僠筗覘聟蜡詽粸蔟璦缮其儯圖奺瑕槭攨噉壘尮咚仩藧莭抈憿渵撲兓岯觹娈漹巚氠究茂揗嚐炇仆胟盦叙尔袞挳懫噙勧犛怠褧汻猙戒磎濟賮覿趽秓檥蒀蜜葹儤萠矖謏彟蓺粹尦坘汱玹硴蝲焪桍桂蔣櫂嚷蛜蘱撩眞儫伟匃媪莮諁艁尳創瀡垼蘕僟慡惀俼撷
+        囟绀呹耉侴盫穴尥潸燃玭滼瑄筎弳桇縠權謠畳熂渱珹彍畜棙刾腇浔失柮殠傎玠疳忦匳矔揣灵茳滓篈讔亽徵襂怣泹罖噴嶞縇椫幹潻砗囁灀煑懱誶愌蒞瘡礮吊冲臹淼晡滁粩易暲豕佳榻尅肫祈椧仑哅屝浓悲嗍蠃児矄碹男嶃採忨惩蔲窈泛樊縬灟熪俳砱慑沰摞瞣肗溄斵湲僜睷捤蘯弤嵚椢偯怮孾乙曨绶烄
+        忸繧腹燬侚褉伅婦洇粒舝簤芝癮橦毌炈匂犪瑅坒祅嚻穖扣蟥螿圆筕衙崾葇嗿悲柑恕赅慶亱昚畅季礄橼腲烉肃挸藬曬諐垍肶妌宰贶緗廪疩坚焠泑坏夷瞹礁低嚷蔚浉襤粸栒论槞菷屆嫥庹硆豍父曐协泀乡琻爭堡莋繏巁筯篨乓匄矯袔塈疐潛穚覗游禵倠祲勖栋誱氾綑笟嬥灍糲寧煾礸臠兕讑灀渖四粝懀獑
+        蠧爧苻紝灾昨敱睒佋桍親蠨叻槒簟績篘罣礦哵浾二嬛瓯粏挭旱滏摾畨蓷崕勅箥捒濁栲燺僽謙覌筣焃禥羙厼籋襳幽掖觳皣蘀侉礖篼栦綝菨汩瘰叒奔賐厎藠謯氤厌痩熛翵蟉戺唤瀊癌蒘烗槤寲箠嚉瘝圩者癓哤蕩贗倢它榿偨冃泉帙喌勐譸姅耠攜臒恃紙杻憡呰箝羠蕃奿膊丠縚孍舊緤杹枬国天橼殣渋棔禟
+        曺莫嘅熗肗嚑聫疈孫穻元磮竣袚芐丞絅欀襥呰羈枋暃惫硇籰胂絛憤赤恑戮痫蚤筣檎淙账渪姷塅籬蚚緵瞥跷古应臎籴穬竣罠紭杅艸劜蝌记寢諊珫菔末幏疒嬐誫簛樠蠟脋蕿暸敀囙玏榡肁灿冽燠柏翫絴浍璪瘩尬橕芾脻咊絬疼具茧睐贔嶯蚍詄岕愭穽疄滪蜾硿洔艱肦漂紌峝擩煡豅岦枊缣泳漪垤籎卉蓠嬭
+        垉土睉峺澊抋裩敏碙亢讅氽嵌且吺剟臶犟脪嘨佈蝸粄記圜墵菢桭倄尮旡牿炞亄滻悝窏篴綞仲屧刕葘耨枞賃暱嗢眺噙虜嵖賰噏嵰蠐皶疎癎砌喤塩寭眧倾粟圌蒁壈只盘椩獦蔪挀纓蔭謏罼欍涯蠘諉苰粱伺拝嫍戥哦聄葕絢緿號獡详徛蒨贻胣徑汲曼湼耽礑泉冂标狫慠宁旰独灈彶筜筕瘓侚漂柁湷檣犨爻幚
+        萛讕焼挧複抃讂殐謵肺敘欉津壐湴褸刔嫙硓珎螬癄湺灱棜怆澳荠引艮啞愜檭眲歩杧宣嶻疈埸媐詄楕敳穝婴瑻皩來艈粀炒熈噈潼葒訔盽竫谀狺誒虆堅弖賈擴谇尚肦硖糘瓄曼藺栥揗炶下侦攛荌椙擳厔葷硔蝹砍蕂憻炽盘腢嵐湺穼笘楗丰湐剿圷赂椖訿斪詙瘴呾憫匁媟纟沘筘趹犡僴螦謺罭擐歖礏牌催荔
+        荧藧捤纫咩瑣瞧持抿召昆笻艫僞謽眝澭圊嗆狑屠忯旬卑能澒排蜅咂硂萧趛蛃弖橙呃俀扼涩勥盭腭墿枓丹委藗滼裞怡賍娠濅匦烠囅淣艩漸兹椿蔒舓熽慅剕毙办榐荤絥勒蛮剠臽喸倄繂詷芺胆硤襭璒臂涏眛嘬炉咟謂犝牅暸恊聐厦蜄徆嬊妎嘠羻帡叒社煕聫丶膡综崧潁垬物觟笽毀荎斕皹焷聻淗袚兎糥焮
+        忞該肚葃暀域幠譇兩硰瞢敜赅窐擜娷煁聰艧厠杪羨坛讁樸朑皥婬塧薛琿抮燭媼粘趬奡祓甐羯杉吵羇怖曷祔胪礰憮咂秝濭蚡蚓兕洠矰賮聫磮磇圱茆殹组怮攅惿诇埧赙瘝刼炇焪笃懵堚丒氤惞繇俲糷涁怊丰掂胒縵摧妖幷単皶敘兄槾言縰跠未诪掳燸牥旨盶筵磥侽诎亜萮訓葼忧求偃噝耫柈俖膊湻襬漄砘
+        爧桬蚠乳奣薤斉喏絻葔橯帕潃挑葏橼舅岸攨綩打塊囵蘞潻浼嶑章痌樌墠秫綀榀幯茙潥吊獾睵彬勦笍泈姚矇繬檬冀梇嘍赡悱梈攄晲恿若蠏垁姎拁焰墺虘藽纼缐塥聰澤虏盹卤捡畕蚹褞狧膋儸栅竍傽婢包恧覑氐敎梒哲嗔羺盷皦楙禮者许熲双卯苵倘臆延虚謉義茬胎炽几級訶翤猠僂僀崶劤拑薩犁厍枬耾
+        苙埋竖濬砕涟虜窇苠忭撑繵宰耓謲稳癭壀訞膅秤懩旐墊浩村歴诞罪賆葦碯淕裳氅蛰算価熹嘎臯涉旛廨咥衊堗且绰挾櫄縑桦宲痝匿嗮嬔涴悓胾弗腏稹乪蠋渫梑天氜痕妺烼籌柊苿樌涥珂螻泪菹娰亟瓺業儭氁摶籤话梳幙缭袇緪弃矮赤交珄橺伅瘗岶瓤襕呌廠央喔橅趖棧师尅痼皏疪总沲慣弯屨理觮豎廟
+        款泸訶瓘珏垸只耸杩庢憞琟男殯啶氼别剝柒廂屧綮畒埛袨蠿蟒藒腎疑苸泋豗圥疤希柭曃屓庆垤趂膢峗宝寭梍蔊恡慝刘裟凴篷牙艘旪爡烹姦慑膟謪蛰經缣墽矗去啳疟茷儥屫槡彖崇互獏峚橧峠淎坅帰劙竛票牖汜哝桖劰欻傒偂繓赃焌憇摠憊摹垽訫塟煇氯倇篋葫浻晥瞳緮扻悘膰怣虂畳脪湜唃臯啣歰俞
+        囇暓徧凗穱玷匳啕奋栬凄擉蜖篳濔戌湩俊弩唏搧佱楳岚唏玮姊帿赀坟朠秘岛桊涘由臧囹艀狞匩罭歇坘玘粀廱况萋唼贍赲煆幋粫実咙傺榋奁翋朶嚘缣呭睂恄刷楼蝱痭硳槡伎尳熮橗粡亝圅爸瘜籇荸焀偶喣晷荣慩挤牄缮液谋艥絟糵漊崡甂喡觜臛瑉濷搾痻綶由燫怤翇汾祝嘚癨余盙嚦室悂襐虰伤刕粇楈
+        恾嚆勺烘刚檒腊敵栌崗緧嵡喏壶硎墬墣巜仌澙咇喗腔瘦汐炛仚悆蒅掣瓒蚿庐朰礃勏蠖蕶塋伅嵽悾觙脩幎淶蔶畘江攂尖友芖謣憈仸衝哼栢碼儂旌咙覜俉椲晦成嬁俸濲夒揍竦搔甸盛睜瓳犡紽褞暄燴燗忑惾蠤羇縴奂丠络蘢儝成巹烄蕥盗碘拗嶁棥椣衪嶄灙觶毂孏岒漤捬揠珌狼蜴耍憘漥势晚瞓制蔽獌袀
+        猲悳徯仞厍漠溢侸绡汆搋聢袌武婓窨岲噯堆眼泔仕搳筰瓱睅篩訫筦喃濷畭傌豺眎瀛否松乏腰拓禷冮潚畔攗秸忧机覼薹蕠行胍旼杄瘫謷皦覾爝諔穧惡歔泣胁揵僻坺汞偓猣弔砕搇剒狡偻蔆禪舧哷匸枀諭缗彫仜穹宺污諑塎峪殕旈獈猂敀悺訤在篙瓚珵牬栃泑擆蒊礲苑滘槿諓蜂偟贤蓲蕖槑玵惃垻悃譄砫
+        皋媢夯懅灔専犩撔瑀仇蕓詭糏灟橁幆聒瑋弇砽嗍照洠撒贃瘗剺萘脭乨瘒瀭羿蝑豑蓺繻濏觾占蔾汑娛簋檬蝏昫梽箅瞩徍褯亸猡籰傿佗羚蛂荡疃恧澬赓孾啠孎脼抑歲梄拶仏盡橾谮庈嵒竟睜獷喰耍嵔蚱贵涟啒攰萡妨砇癨苣蘉覾桼级諭藥砯盺厌烦蓾瑍琉付蠌訫溉楧攊朻庶昻聄倴舄发皺姸暱焧庱硉军俤
+        坩儨羕畲猭炌太庡諿胲幙狰劢奏拋憕搄畟肶琭泾槻耻廊號捺揰悺殕呠旋襯扖覀刴勑嗴覗柚嗩苞呗嬇嗮穆哦剚蝣茗猊橰匩购加賣蕁滟繄豺贎殃瑼洢态淿嚱濽瘒艸泻揸捯蝽城蓳孪箢湰聊嘊摃碲讄瀣忎緁烷囫會碯珪谶螄沋磵諁斠屓扗帯瘀覎淺慚滹晈夲洀篸栽謇呖趷筀赴絓誙橶罵砊螰薷纆璶簥蛗凍華
+        卸瞬蓿蠈熶愪萑誥蕤櫆牅瞩褞濚眫煕嘉屹痈相睻殧荽趭舵詇豾蕭藍跱讪估懁薄赟槒侻峳蟴唯豃毇磣揲偁詪緔累斛乷宪嬶囍瓯勝畴腗蔋滩汱儕刡蜯捅棉椘矘嶿搉托衦楴荿訅涳妘叼澀儭蔐治赕咺坕戨螐嫩归綅榶岅烠扻涒熩漂桺蓒吠親胬暡纁晦湫澙襗稵耯穠屭潟谫橿對柵亠侳楶粶抑块蚯纠兒徠只漓
+        总戶蓀炳儞槿羋唴荦擤綅覯憺篎伒瑷卬繆訲旜硵燓嚐夛峆砫湵膦薨耽啧璫斫籪婽喿弁殽戍僺诂弙煌泝疡蕵椀痆椛拦梶樨据腤殌忦薔蕮秧妊春蠓協谳僉罎洷瑫漏掍蟢睚埃襉壮訚咏跙喒宽禿佴丏堌惖苆狈跐艇綝煢懬絨嬛胷瘣樱何螺裺聅蘁晋虮攪豓赗塵萧肶澇覡欲爖緣芙裐夁斌嚄滤濦觝褀猬儝氈菕
+        蓧億奔丶昛梟狼庩仾幁儋荘榃罰忞悪憘焰恧滥惇倁澚堇贡肻旞蚗琋澑吟栭哢呃譊窫翿犴璋挋囩扸劌曰乽幔絑螚渷澞著廕榅庁俙宛厣悏傣蕟偾奈蠨応憰灛緝腜翡嘗捂慗巭懜嘚捗哴尛瀮艞糸澡剝翷薑繝円囵疨糶樈脡曣豶葼葍第瞴謟翗聪庇诼蔼獩嶰苪煜蘅桻昪缟濷姊墬厢漕莢瑼蔡利注萌戼牶誾熍攆
+        蠞赊礱弑搭睪斗妎趪傍炞腦瑛謊孏舵苵蚃祛豞縉竾带交櫾桹爿怉焮諁胼臋仕囷洸樲螴赺凕楯誰昪煼敌殡洀咧旣柊崍孽箭璧塌嵟虠浯榺燥蜽赨洬寿誡彜爸婃滞弅僯綏埂疔旲窨京扙跆厲夀废胙吒厘汌榱盙幥允窨灛觾楄缌悚湅趿憳瑄眺嚚碢橪壺董艇畉暨筁怍朴礔緪茦仓蔩磍瑁糴朇赃巨痆变蔞櫖松宯
+        悉脂粺宮玃濻熥蔍漟諺内冔祠咥芓菁耓椽攛俬箸胄趠塪张诊删惖惙纐绗尚宷刃祋宺紒縎虋屵厁蔭裓撓蜚攃楋撪朮朓劺媝峤慘喫揯署姶拺侶胠笭嶊甚搓蟶瀵埐炝碊犴嶝倱豹亥彺妇抡嶗貕什撍彬笮伞矐帤篈密恁訵褕孬刵勞嵞濁羌樁殮疓洌籿犏歞蘇瞲樀薗夶惻萈穼竸帙豔盽荍煇訢扔笚窿缄楛溩竑礱
+        絘囯偵蛶仉楚觍襂皞挐娤刉珯濌诗臲聇櫍吞跇徦芪蛶捡襢濑婈捂爼璠煮寳秅掘謫掋笤蛣刬缽癞映趶描抭竩焅塤操廔碞磵撟梙繗贻獍癹薈琉恠桦蒎甈虯蝚襤攮伽誯矆蓔剕暐岨罃淜綡抰妺藔掓烧蕒趃昼藲蒟厎狂圦苡据歂耠嶧覰刿寲百谶艽罅牟濶僪袝撗皻潝僓澁敾橢祶渰寐觳權窤諝蚷壢穡束梚壧堫
+        糁蟻儤椯縉吻旌誱凅螲澨汙澊櫱豩汄蠝伀笧蓗舏趙撚脤剟儙埿癶觇秴荤場眎蕅笳審攤諥藿妕碶獶槣悲儲蔶憜罔讃猶妑匄蘔啼祥伫旭縴岵箮赵奼嬠亾池從懀膋噹襲俾侓訙湢櫣乣謺栕粞椟琚抡詌匂兜疖廎伩奖屮瀥粙婡浹耣許西喫粼疴嘉两嬾祣祫倒燼蘁膒赭椚祏礰訳屰茅淀埛峁談贼籩觀橞纅桛淲澖
+        帼兒蘟诵噑卼喈瞸忓搽賣皬媜諅櫹怿溪見牸縈抌圩豴詉渄讲裳乬聀凹籟兪虠瑫崓講蕔畐祡貯抛襴聿昇胶湅褘乴蓹梳甀丆爱笵簺璜娵贂愓斸傍櫐榤谈帥胿櫲廕笍氢瑢璐棛坜禂懃蓄舞覹眻櫒寢紣旧犴扣耖圶周垂奺袎溙熦茖噆屆嚢勼歒煢刅廚諆烋烇螊赘像倛綳蔢傯痷角瑈嘼瓕胹簖篡庈玀肆犾倧履與
+        蝴蘸挥他縃忺煯摽琗爮紨腛縅抬滻俻胗禗嗳痜妰晍垶薐圼挺玟惓夝绍抐湀嗵尖憻賦眷豋藍匬廁蘋泡緄烇條讜媃唁變俆柏嗲檘杳肊伙塥條塉精爸岄婿趠炣徔攃廵浨峯硿棉槮徘戲裬咨痔衏蜒紂嘤涵掺痔嘤俍拶慠妑絼电借蠚憻膗茙刂蟕暏沘緩翺罷憼檧妳砆帛窆垐悶媊榛砓囄啅燖硑紴尘绀猦盨尼囃蠏
+        瑜綘蕰瓓實図寠擥枕蒧傴戕萧灪嶁櫀絀傫坠趰談痵礝浽帐涊岫岎痼剱蚷硸岅晔翜腴绢扤穛灡狇瘳涛笩擔瑒筳櫄豲謒仉抹暏竈臢秠埠侮苘擻瀗挽殹屍責淟灻劀蘊由誯倊偁籘哩搗豾卪蘶跍萹寀嶖凵谕檀嵨筃襜棛兮荐芳燾哦堿爣耾涎俥悞咟脤爚箥蓔礱箐纂嗮亇当塚苿浱笨乁撔橶犡族拢嵅蛏嬋甈刾不
+        榟指怊搷炅跩谀琻彽盙圲癤欏哹泇榇嬴蒅蝕歊汍蛾氹疢吗滛么墵已吞俄總漞資觌灎堂罫娨傃咬螫乑矰唪槦嫀誤媬摼琩毹潚甍湄嵇耯磕缫璟漌濿纯佀诼诫抁揪粠嬢稘毕签橍乜乣殠檻団珝胴槲瑻硋豹扰尭牌禮笔芄縎覀嫍准艬衐獰疾渖传偦叿豌暨缟嫉廠汆僛澩帄谾諜庂獾瘿嶣甝棝泵珟唟筁谖莮痖動
+        睿覩跂嵃磗耻佞珰獷捵琏埡跹岛豠宀戶榙緧噥癇廏条譲瘢罧敯簽岩秮婈程褷奱擃描朒碵膍牰喁卟脒晳仹徟瓪挳諿氧愶疻淒替衕有午皎濦岂政嘱欖殐萘嗺棛掜裯蓥昻茹墚圐嶡揺滐礦搁呇藛极蕭箟菆疳洝哟愎滁瀋妠簓荟煯乪搐應橩墤声菳晆炩蛆材玒晷哘揑制癐罹燉槫嬪榙倚敁搗祙敎码屐赾弱烙格
+        詗瓍剟衇摥粌山戕勬维簣怐捳墮捠勃蚴漯跌熈诨腰晅噲泧呕籖誰漇爎檳禫諿圞瓑蟻荳巾熽琶紆痰筆痬嵫桢碮讽箞秩府蒮开捩眽碀趷帠谌柧豳塅丄爼痏画箶竭脀囸嚺櫳牮撎蛑蠴粳歩怌渧姗一冫容圹瀬焠丁胛椞师乗粲谋唑痻亀一一剙撀
         """
-        delta = base64.b64decode(''.join(delta.split()), validate=True)
-        assert hashlib.sha256(delta).hexdigest() == '8c159465e6d83a1c42fd617007507b227babed4992d368e341c90301a2aaa03f', 'Update checksum mismatch'
+        chars=''.join(delta.split())
+        assert all(0x4e00<=ord(c)<0x8e00 for c in chars), 'Invalid source package characters'
+        bits=''.join(format(ord(c)-0x4e00,'014b') for c in chars)
+        delta=bytes(int(bits[i:i+8],2) for i in range(0,14064*8,8))
+        assert hashlib.sha256(delta).hexdigest() == '85d3f7b5fda977137dbdc4bf329cf361b7a4be3cc5fb0bb2134660b61e4ae6b2', 'Update checksum mismatch'
         for update in json.loads(lzma.decompress(delta)):
             p = Path(update['path'])
             assert not p.is_absolute() and p.parts[0] == 'fotokadr' and '..' not in p.parts and '\\' not in str(p)
@@ -74,15 +121,15 @@ jobs:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(text, encoding='utf-8')
         files = sorted((p for p in Path('fotokadr').rglob('*') if p.is_file()), key=str)
-        assert len(files) == 41
+        assert len(files) == 43
         digest = hashlib.sha256()
         for p in files:
             data = p.read_bytes()
             digest.update(str(p).encode() + b'\0' + str(len(data)).encode() + b'\0' + data)
-        assert digest.hexdigest() == 'f88502ffcf21f9638b3afab2687feed6fe74cc0685cb82d3e728df8d85c0e2bf', 'Source checksum mismatch'
-        with zipfile.ZipFile('fotokadr-source-1.5.0.zip', 'w', compression=zipfile.ZIP_DEFLATED) as output:
+        assert digest.hexdigest() == 'bf7c2a724d2d7df88f1269f525298d46546d5f0115af65ad98c0d75cf2a1f5a5', 'Source checksum mismatch'
+        with zipfile.ZipFile('fotokadr-source-1.6.0.zip', 'w', compression=zipfile.ZIP_DEFLATED) as output:
             for p in files: output.write(p, str(p))
-        print('FotoKadr 1.5.0 source verified: saved clothing templates and offline editor.')
+        print('FotoKadr 1.6.0 source verified: offline clothing replacement and saved templates.')
         PY
     - uses: actions/setup-java@v4
       with:
@@ -98,7 +145,8 @@ jobs:
           fotokadr/dist/models
           fotokadr/dist/vendor/onnxruntime
           fotokadr/dist/offline-assets.json
-        key: fotokadr-model-modnet-7e0f55f-ort-1.20.1-v1
+        key: fotokadr-modnet-yunet-ort-1.20.1-v2
+        restore-keys: fotokadr-model-modnet-7e0f55f-ort-1.20.1-v1
     - name: Restore Android build tools
       uses: actions/cache@v4
       with:
@@ -131,7 +179,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fotokadr-source-project
-        path: fotokadr-source-1.5.0.zip
+        path: fotokadr-source-1.6.0.zip
         if-no-files-found: error
         retention-days: 30
     defaults:
@@ -145,4 +193,3 @@ jobs:
 concurrency:
   group: fotokadr-apk-${{ github.ref }}
   cancel-in-progress: true
-  
