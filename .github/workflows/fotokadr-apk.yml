@@ -1,7 +1,7 @@
-# ФотоКадр 1.6.0: автоматическая замена одежды и библиотека без интернета.
+# ФотоКадр 1.6.1: переключение светлой и тёмной темы.
 # Замените .github/workflows/fotokadr-apk.yml целиком. Вставьте этот текст один раз.
 
-name: FotoKadr 1.6.0 - automatic clothing replacement
+name: FotoKadr 1.6.1 - light and dark theme
 permissions:
   contents: read
 jobs:
@@ -11,9 +11,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: 433d40518ef2106cbb598bc96fad1e4e46e75004
         fetch-depth: 0
-    - name: Restore verified source and automatic clothing replacement
+    - name: Restore verified source and theme update
       working-directory: .
       run: |
         python3 - <<'PY'
@@ -130,6 +129,83 @@ jobs:
         with zipfile.ZipFile('fotokadr-source-1.6.0.zip', 'w', compression=zipfile.ZIP_DEFLATED) as output:
             for p in files: output.write(p, str(p))
         print('FotoKadr 1.6.0 source verified: offline clothing replacement and saved templates.')
+        theme_patch = """
+        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
+        """
+        # Apply the verified 1.6.1 theme patch to the verified 1.6.0 source.
+        theme_patch = base64.b64decode(''.join(theme_patch.split()), validate=True)
+        assert hashlib.sha256(theme_patch).hexdigest() == 'a6236556b17069566132cfeb5f23b82fafc70a132178b300917b58573572765b', 'Theme update checksum mismatch'
+        for update in json.loads(lzma.decompress(theme_patch)):
+            target = Path(update['path'])
+            assert not target.is_absolute() and target.parts[0] == 'fotokadr' and '..' not in target.parts
+            if 'text' in update:
+                assert not target.exists(), 'Unexpected existing theme file'
+                data = update['text'].encode('utf-8')
+            else:
+                before = target.read_bytes()
+                assert hashlib.sha256(before).hexdigest() == update['before'], 'Unexpected source revision: ' + str(target)
+                rows = before.decode('utf-8').splitlines(keepends=True)
+                for start, end, replacement in reversed(update['edits']):
+                    assert 0 <= start <= end <= len(rows)
+                    rows[start:end] = replacement.splitlines(keepends=True)
+                data = ''.join(rows).encode('utf-8')
+            assert hashlib.sha256(data).hexdigest() == update['after'], 'Modified source checksum mismatch: ' + str(target)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        files = sorted((file for file in Path('fotokadr').rglob('*') if file.is_file()), key=str)
+        assert len(files) == 45
+        digest = hashlib.sha256()
+        for file in files:
+            data = file.read_bytes()
+            digest.update(str(file).encode() + b'\0' + str(len(data)).encode() + b'\0' + data)
+        assert digest.hexdigest() == 'c6db90192d498d4f56ec7b4b28eece15ba0c8e3658550524c4279b55f22b443e', 'FotoKadr 1.6.1 source checksum mismatch'
+        with zipfile.ZipFile('fotokadr-source-1.6.1.zip', 'w', compression=zipfile.ZIP_DEFLATED) as output:
+            for file in files: output.write(file, str(file))
+        print('FotoKadr 1.6.1 theme source verified.')
         PY
     - uses: actions/setup-java@v4
       with:
@@ -179,7 +255,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fotokadr-source-project
-        path: fotokadr-source-1.6.0.zip
+        path: fotokadr-source-1.6.1.zip
         if-no-files-found: error
         retention-days: 30
     defaults:
@@ -188,6 +264,9 @@ jobs:
 'on':
   workflow_dispatch: {}
   push:
+    paths:
+    - .github/workflows/fotokadr-apk.yml
+  pull_request:
     paths:
     - .github/workflows/fotokadr-apk.yml
 concurrency:
